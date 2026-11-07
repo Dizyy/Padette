@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest something JoyPad should do.
+description: Suggest something Padette should do.
 labels: [enhancement]
 body:
   - type: textarea

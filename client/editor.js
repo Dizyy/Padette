@@ -1,4 +1,4 @@
-// JoyPad layout editor: drag controls to move them, drag the corner handle to resize, turn
+// Padette layout editor: drag controls to move them, drag the corner handle to resize, turn
 // optional controls on or off. Made for clip-on triggers: put LB/RB/LT/RT under the clips.
 (() => {
   'use strict';

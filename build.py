@@ -1,4 +1,4 @@
-"""Builds the single-file download: dist/JoyPad.exe on Windows (dist/JoyPad elsewhere).
+"""Builds the single-file download: dist/Padette.exe on Windows (dist/Padette elsewhere).
 
 Run with the project's Python:  .venv\\Scripts\\python.exe build.py
 Attach the result to the GitHub release; the .exe updater downloads it from there.
@@ -31,13 +31,13 @@ def version_file(path: Path) -> None:
 
     nums = tuple(int(n) for n in __version__.split(".")) + (0,) * (4 - len(__version__.split(".")))
     strings = {
-        "CompanyName": "JoyPad",
-        "FileDescription": "JoyPad",
+        "CompanyName": "Padette",
+        "FileDescription": "Padette",
         "FileVersion": __version__,
-        "InternalName": "JoyPad",
-        "LegalCopyright": "JoyPad contributors, AGPL-3.0",
-        "OriginalFilename": "JoyPad.exe",
-        "ProductName": "JoyPad",
+        "InternalName": "Padette",
+        "LegalCopyright": "Padette contributors, AGPL-3.0",
+        "OriginalFilename": "Padette.exe",
+        "ProductName": "Padette",
         "ProductVersion": __version__,
     }
     path.write_text(f"""VSVersionInfo(
@@ -57,14 +57,14 @@ def main() -> int:
                     # The Windows .exe lives in the tray (server/tray.py).
                     "pillow", *(["pystray"] if sys.platform == "win32" else [])], check=True)
     BUILD.mkdir(exist_ok=True)
-    icon = BUILD / "joypad.ico"
+    icon = BUILD / "padette.ico"
     png_to_ico(ROOT / "client" / "icons" / "icon-512.png", icon)
     version = BUILD / "version.txt"
     version_file(version)
     sep = ";" if sys.platform == "win32" else ":"
     subprocess.run([
         sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile",
-        "--name", "JoyPad", "--icon", str(icon),
+        "--name", "Padette", "--icon", str(icon),
         # Windows: no console window; pystray picks its backend at runtime.
         *(["--windowed", "--collect-submodules", "pystray", "--version-file", str(version)]
           if sys.platform == "win32" else []),
@@ -74,12 +74,12 @@ def main() -> int:
         # PyNaCl loads libsodium through cffi's compiled backend, also unseen.
         "--hidden-import", "_cffi_backend", "--collect-binaries", "nacl",
         # vgamepad ships ViGEmClient.dll, loaded with ctypes at runtime.
-        # (Only the DLL: its bundled driver installers are left out, JoyPad never installs anything.)
+        # (Only the DLL: its bundled driver installers are left out, Padette never installs anything.)
         *(["--collect-binaries", "vgamepad"] if sys.platform == "win32" else []),
         "--distpath", str(ROOT / "dist"), "--workpath", str(BUILD), "--specpath", str(BUILD),
-        str(ROOT / "joypad.py"),
+        str(ROOT / "padette.py"),
     ], check=True)
-    print(f"Built {ROOT / 'dist' / ('JoyPad.exe' if sys.platform == 'win32' else 'JoyPad')}")
+    print(f"Built {ROOT / 'dist' / ('Padette.exe' if sys.platform == 'win32' else 'Padette')}")
     return 0
 
 

@@ -1,4 +1,4 @@
-"""JoyPad wire protocol, version 1.
+"""Padette wire protocol, version 1.
 
 Pure validation logic with no dependency on FastAPI, the gamepad driver or the web client
 (pad.py only provides the button bits and the PadState type).

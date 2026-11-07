@@ -142,7 +142,7 @@ class EncryptedClient:
         await send(self.ws, {"type": "enc_hello", "nonce": base64.urlsafe_b64encode(client_nonce).decode().rstrip("=")})
         challenge = await recv_json(self.ws)
         server_nonce = base64.urlsafe_b64decode(challenge["nonce"] + "==")
-        session_key = hashlib.sha512(b"JoyPad session v1" + self.key + server_nonce + client_nonce).digest()[:32]
+        session_key = hashlib.sha512(b"Padette session v1" + self.key + server_nonce + client_nonce).digest()[:32]
         self.box = SecretBox(session_key)
 
     def frame(self, msg: dict) -> bytes:
@@ -375,16 +375,16 @@ async def run(server: Server, port: int) -> None:
 def check_qr() -> None:
     print("QR code")
     key = bytes(range(32))
-    with_key = connect_url("joypad.local", 80, "123456", key)
-    check(with_key == "http://joypad.local/#p=123456&k=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+    with_key = connect_url("padette.local", 80, "123456", key)
+    check(with_key == "http://padette.local/#p=123456&k=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
           f"connect_url with the key -> {with_key}")
     with tempfile.TemporaryDirectory() as tmp:
         key_file = Path(tmp) / "sub" / "key"
         first = load_key(key_file)
         check(len(first) == 32 and load_key(key_file) == first, "encryption key is made once, then reused")
         check(load_key(key_file, new=True) != first, "--new-key replaces it")
-    for args, expected in [(("joypad.local", 80, "123456"), "http://joypad.local/#p=123456"),
-                           (("joypad.local", 8765, "123456"), "http://joypad.local:8765/#p=123456"),
+    for args, expected in [(("padette.local", 80, "123456"), "http://padette.local/#p=123456"),
+                           (("padette.local", 8765, "123456"), "http://padette.local:8765/#p=123456"),
                            (("192.168.1.23", 80, "123456"), "http://192.168.1.23/#p=123456")]:
         check(connect_url(*args) == expected, f"connect_url{args} -> {connect_url(*args)}")
 

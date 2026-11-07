@@ -1,4 +1,4 @@
-"""JoyPad.exe without a console: a tray icon and a window with the QR code, PIN and status.
+"""Padette.exe without a console: a tray icon and a window with the QR code, PIN and status.
 
 Windows only. The source version (start.bat, `python -m server`) keeps its console.
 Try it from source with  `python -m server.tray --dry-run --no-update`.
@@ -28,7 +28,7 @@ from .__main__ import StartupError, make_server, parse_args, prepare, setup_logg
 from .app import CLIENT_DIR
 from .pad import DRIVER_URL, driver_available
 
-log = logging.getLogger("joypad.tray")
+log = logging.getLogger("padette.tray")
 
 LOG_FILE = encryption.default_key_file().with_name(f"{APP_SLUG}.log")
 LOG_MAX_BYTES = 1_000_000

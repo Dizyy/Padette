@@ -35,9 +35,9 @@ check(Layout.clamp({ v: 1, controls: [{ id: 'evil', x: 0 }] }).controls.length =
 check(Layout.clamp(null).controls.length === Layout.DEFAULT.controls.length, 'nothing saved -> default');
 
 console.log('Saving and loading');
-store.set('jp.layout', 'not json');
+store.set('pd.layout', 'not json');
 check(JSON.stringify(Layout.load()) === JSON.stringify(Layout.clamp(Layout.DEFAULT)), 'bad saved JSON -> default');
-store.set('jp.layout', JSON.stringify({ v: 2, controls: [] }));
+store.set('pd.layout', JSON.stringify({ v: 2, controls: [] }));
 check(Layout.load().controls.find((c) => c.id === 'a').x === Layout.DEFAULT.controls.find((c) => c.id === 'a').x,
   'a layout from another version -> default');
 const mine = Layout.load();
@@ -47,7 +47,7 @@ Layout.save(mine);
 const back = Layout.load();
 check(back.controls.find((c) => c.id === 'rt').x === 0.5 && back.controls.find((c) => c.id === 'dpad').on,
   'saved layout comes back after a reload');
-check(Layout.reset().controls.find((c) => c.id === 'rt').x === 0.89 && !store.has('jp.layout'), 'reset -> B3 again');
+check(Layout.reset().controls.find((c) => c.id === 'rt').x === 0.89 && !store.has('pd.layout'), 'reset -> B3 again');
 
 console.log(failures.length ? `\n${failures.length} FAILED` : '\nAll checks passed.');
 process.exit(failures.length ? 1 : 0);

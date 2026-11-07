@@ -1,10 +1,10 @@
-// JoyPad layout: where each control sits. Positions and sizes are fractions (0..1) of the
+// Padette layout: where each control sits. Positions and sizes are fractions (0..1) of the
 // landscape screen, so a layout works on any phone and can never end up off-screen.
-// Saved on the phone under "jp.layout". Works in the browser and in node (tests/layout_test.js).
+// Saved on the phone under "pd.layout". Works in the browser and in node (tests/layout_test.js).
 ((root) => {
   'use strict';
 
-  const KEY = 'jp.layout';
+  const KEY = 'pd.layout';
   const VERSION = 1;
   const MIN_SIZE = 0.06; // smallest control: 6 % of the screen
 

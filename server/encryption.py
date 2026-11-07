@@ -1,4 +1,4 @@
-"""End-to-end encryption between the phone and JoyPad (see PROTOCOL.md, "Encryption").
+"""End-to-end encryption between the phone and Padette (see PROTOCOL.md, "Encryption").
 
 The PC keeps one random 32-byte key, saved so phones stay paired across restarts. The QR
 code carries it after "#", so it reaches the phone through the camera and never travels over
@@ -23,7 +23,7 @@ from . import APP_NAME, APP_SLUG
 
 KEY_BYTES = 32
 NONCE_BYTES = 16          # random value each side contributes per connection
-SESSION_LABEL = b"JoyPad session v1"
+SESSION_LABEL = b"Padette session v1"
 FROM_CLIENT, FROM_SERVER = 0, 1
 
 

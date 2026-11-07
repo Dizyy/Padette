@@ -1,6 +1,8 @@
 <div align="center">
 
-# JoyPad
+<img src="docs/logo.png" width="112" height="112" alt="Padette icon: a game controller with mouse ears">
+
+# Padette
 
 ### Your phone is the controller
 
@@ -15,26 +17,26 @@ player 2, 3 or 4.<br>
 
 > [!NOTE]
 > **Is it safe? Yes: no virus, no tracker, no ads.**
-> - **Nothing is collected.** No accounts, no analytics, no ads, no tracking. JoyPad never sends your button presses or anything else to the internet.
+> - **Nothing is collected.** No accounts, no analytics, no ads, no tracking. Padette never sends your button presses or anything else to the internet.
 > - **It only talks to GitHub,** once at start, to check for a new version (turn it off with `--no-update`). Everything else stays between the phones and your PC, on your own Wi-Fi.
-> - **It needs one driver: ViGEmBus,** a free, open-source driver that lets programs add virtual Xbox controllers. You install it yourself, once. JoyPad never installs anything.
-> - **Guests can't touch your PC.** A phone logged in to JoyPad can only press controller buttons: no mouse, no keyboard, no files.
+> - **It needs one driver: ViGEmBus,** a free, open-source driver that lets programs add virtual Xbox controllers. You install it yourself, once. Padette never installs anything.
+> - **Guests can't touch your PC.** A phone logged in to Padette can only press controller buttons: no mouse, no keyboard, no files.
 > - **You can check every line.** The PC program and the phone page are open source, all in this repo.
 
 ## What you need
 
 - A Windows 10 or 11 PC and phones on the **same Wi-Fi**.
-- The **ViGEmBus** driver: download the installer from [its releases page](https://github.com/nefarius/ViGEmBus/releases) and run it once. The JoyPad window reminds you if it's missing.
+- The **ViGEmBus** driver: download the installer from [its releases page](https://github.com/nefarius/ViGEmBus/releases) and run it once. The Padette window reminds you if it's missing.
 - Any phone with a browser: iPhone, iPad or Android.
 
 ## How to play
 
-1. **Start JoyPad on the PC.** A window shows a QR code and a PIN.
+1. **Start Padette on the PC.** A window shows a QR code and a PIN.
 2. **Scan the QR code** with the phone's camera. The phone shows **Player 1** (or 2, 3, 4) in its own colour: that's the number games show.
 3. **Turn the phone sideways** and play. The left half is the stick: put your thumb down anywhere and slide.
 4. **Friends do the same.** Up to 4 players. Windows allows 4 Xbox controllers in total, so a real controller plugged in takes one of the spots.
 
-Tip: on iPhone, tap Share → **Add to Home Screen**; JoyPad then opens full screen.
+Tip: on iPhone, tap Share → **Add to Home Screen**; Padette then opens full screen.
 
 ## Clip-on triggers and your own layout
 

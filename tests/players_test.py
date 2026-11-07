@@ -147,7 +147,7 @@ def main() -> int:
     class Grab(logging.Handler):
         def emit(self, record):
             records.append(record.getMessage())
-    logging.getLogger("joypad.players").addHandler(Grab())
+    logging.getLogger("padette.players").addHandler(Grab())
 
     # A driver failure mid-game: that phone hears driver_missing, the log gets one line.
     s = Setup()

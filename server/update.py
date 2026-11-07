@@ -1,10 +1,10 @@
 """Automatic updater: `python -m server.update`, run by start.bat or start.sh before the server starts.
 
-Asks GitHub for the latest JoyPad release. If it is newer than this copy, downloads
-it and replaces JoyPad's files in place (.venv and other local files are kept).
+Asks GitHub for the latest Padette release. If it is newer than this copy, downloads
+it and replaces Padette's files in place (.venv and other local files are kept).
 Uses only the standard library, so it works before the requirements are installed.
 
-Exit codes: 0 = nothing to do (or the check failed; JoyPad then starts as it is),
+Exit codes: 0 = nothing to do (or the check failed; Padette then starts as it is),
 3 = updated, so the start script restarts itself with the new files.
 """
 
@@ -24,12 +24,12 @@ from pathlib import Path
 
 from . import __version__
 
-REPO = "Dizyy/JoyPad"
+REPO = "Dizyy/Padette"
 # Redirects to ".../releases/tag/<newest tag>". Unlike api.github.com, which allows only
 # 60 requests an hour per internet connection (and answers 403 after that), it has no such limit.
 LATEST_URL = f"https://github.com/{REPO}/releases/latest"
 ZIP_URL = f"https://github.com/{REPO}/archive/refs/tags/{{tag}}.zip"
-EXE_URL = f"https://github.com/{REPO}/releases/download/{{tag}}/JoyPad.exe"
+EXE_URL = f"https://github.com/{REPO}/releases/download/{{tag}}/Padette.exe"
 ROOT = Path(__file__).resolve().parent.parent
 TIMEOUT_S = 5
 EXIT_UPDATED = 3
@@ -44,7 +44,7 @@ def parse_version(text: str) -> tuple[int, ...] | None:
 
 def latest_tag() -> str:
     request = urllib.request.Request(LATEST_URL, method="HEAD",
-                                     headers={"User-Agent": f"JoyPad/{__version__}"})
+                                     headers={"User-Agent": f"Padette/{__version__}"})
     with urllib.request.urlopen(request, timeout=TIMEOUT_S) as response:
         final_url = response.geturl()
     match = re.search(r"/releases/tag/([^/?#]+)$", final_url)
@@ -55,7 +55,7 @@ def latest_tag() -> str:
 
 def download(tag: str) -> bytes:
     request = urllib.request.Request(ZIP_URL.format(tag=tag),
-                                     headers={"User-Agent": f"JoyPad/{__version__}"})
+                                     headers={"User-Agent": f"Padette/{__version__}"})
     with urllib.request.urlopen(request, timeout=30) as response:
         return response.read()
 
@@ -65,7 +65,7 @@ def kept(rel: Path) -> bool:
 
 
 def install(archive: bytes, root: Path) -> None:
-    """Replace JoyPad's files under `root` with the ones in the GitHub zip."""
+    """Replace Padette's files under `root` with the ones in the GitHub zip."""
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp).resolve()
         with zipfile.ZipFile(io.BytesIO(archive)) as zf:
@@ -74,10 +74,10 @@ def install(archive: bytes, root: Path) -> None:
                 if not target.is_relative_to(tmp_path):
                     raise ValueError(f"unsafe path in the download: {name}")
             zf.extractall(tmp_path)
-        # GitHub puts everything in one folder named like "JoyPad-1.2.0".
+        # GitHub puts everything in one folder named like "Padette-1.2.0".
         (top,) = [p for p in tmp_path.iterdir()]
         if not (top / "server" / "__main__.py").is_file():
-            raise ValueError("the download doesn't look like JoyPad")
+            raise ValueError("the download doesn't look like Padette")
         new_files = {p.relative_to(top) for p in top.rglob("*") if p.is_file()}
 
         for rel in sorted(new_files):
@@ -88,7 +88,7 @@ def install(archive: bytes, root: Path) -> None:
             shutil.copyfile(top / rel, dest)
 
         # Remove files the new version no longer has, but only inside the folders it ships
-        # (server, client, ...), never files the user put next to JoyPad.
+        # (server, client, ...), never files the user put next to Padette.
         shipped_dirs = {rel.parts[0] for rel in new_files if len(rel.parts) > 1}
         for folder in shipped_dirs - KEEP:
             for old in list((root / folder).rglob("*")):
@@ -98,10 +98,10 @@ def install(archive: bytes, root: Path) -> None:
 
 
 def update_exe(argv: list[str]) -> None:
-    """For the single-file JoyPad.exe: swap in the newest release's .exe and restart it.
+    """For the single-file Padette.exe: swap in the newest release's .exe and restart it.
 
     Windows can't overwrite a running .exe but can rename it, so the running copy becomes
-    JoyPad.exe.old (deleted on the next start) and the download takes its name.
+    Padette.exe.old (deleted on the next start) and the download takes its name.
     """
     exe = Path(sys.executable)
     old = exe.with_name(exe.name + ".old")
@@ -109,27 +109,27 @@ def update_exe(argv: list[str]) -> None:
         old.unlink(missing_ok=True)
     except OSError:
         pass  # the previous copy is still closing; it goes next time
-    if "--no-update" in argv or os.environ.get("JOYPAD_UPDATED"):
+    if "--no-update" in argv or os.environ.get("PADETTE_UPDATED"):
         return
     current = parse_version(__version__)
     try:
         tag = latest_tag()
     except Exception as exc:
-        print(f"Could not check for updates ({exc}). Starting JoyPad {__version__}.")
+        print(f"Could not check for updates ({exc}). Starting Padette {__version__}.")
         return
     latest = parse_version(tag)
     if latest is None or current is None or latest <= current:
         return
 
-    print(f"Updating JoyPad {__version__} to {tag.lstrip('v')} ...")
+    print(f"Updating Padette {__version__} to {tag.lstrip('v')} ...")
     new = exe.with_name(exe.name + ".new")
     try:
         request = urllib.request.Request(EXE_URL.format(tag=tag),
-                                         headers={"User-Agent": f"JoyPad/{__version__}"})
+                                         headers={"User-Agent": f"Padette/{__version__}"})
         with urllib.request.urlopen(request, timeout=60) as response:
             data = response.read()
         if not data.startswith(b"MZ") or len(data) < 1_000_000:
-            raise ValueError("the download doesn't look like JoyPad.exe")
+            raise ValueError("the download doesn't look like Padette.exe")
         new.write_bytes(data)
         exe.replace(old)
         new.replace(exe)
@@ -137,12 +137,12 @@ def update_exe(argv: list[str]) -> None:
         if old.exists() and not exe.exists():
             old.replace(exe)
         new.unlink(missing_ok=True)
-        print(f"Update failed ({exc}). Starting JoyPad {__version__}.")
+        print(f"Update failed ({exc}). Starting Padette {__version__}.")
         print(f"You can download the new version from https://github.com/{REPO}/releases")
         return
     print(f"Updated to {tag.lstrip('v')}. Restarting ...")
     # PYINSTALLER_RESET_ENVIRONMENT: the new .exe unpacks itself instead of reusing this one's files.
-    env = dict(os.environ, JOYPAD_UPDATED="1", PYINSTALLER_RESET_ENVIRONMENT="1")
+    env = dict(os.environ, PADETTE_UPDATED="1", PYINSTALLER_RESET_ENVIRONMENT="1")
     subprocess.Popen([str(exe), *argv], env=env)
     sys.exit(0)
 
@@ -157,17 +157,17 @@ def main() -> int:
     try:
         tag = latest_tag()
     except Exception as exc:  # offline, GitHub down, rate limit: just start as we are
-        print(f"Could not check for updates ({exc}). Starting JoyPad {__version__}.")
+        print(f"Could not check for updates ({exc}). Starting Padette {__version__}.")
         return 0
     latest = parse_version(tag)
     if latest is None or current is None or latest <= current:
         return 0
 
-    print(f"Updating JoyPad {__version__} to {tag.lstrip('v')} ...")
+    print(f"Updating Padette {__version__} to {tag.lstrip('v')} ...")
     try:
         install(download(tag), ROOT)
     except Exception as exc:
-        print(f"Update failed ({exc}). Starting JoyPad {__version__}.")
+        print(f"Update failed ({exc}). Starting Padette {__version__}.")
         print(f"You can download the new version from https://github.com/{REPO}/releases")
         return 0
     print(f"Updated to {tag.lstrip('v')}.")

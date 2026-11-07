@@ -1,6 +1,6 @@
 {
-  "name": "JoyPad",
-  "short_name": "JoyPad",
+  "name": "Padette",
+  "short_name": "Padette",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",

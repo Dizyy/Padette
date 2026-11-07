@@ -1,4 +1,4 @@
-"""Draws a QR code with text characters, so it shows in the JoyPad window."""
+"""Draws a QR code with text characters, so it shows in the Padette window."""
 
 from __future__ import annotations
 

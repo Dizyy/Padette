@@ -14,7 +14,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
-log = logging.getLogger("joypad.pad")
+log = logging.getLogger("padette.pad")
 
 # Button bits: the XUSB values Windows uses, so the phone's bitmask goes straight to the driver.
 DPAD_UP, DPAD_DOWN, DPAD_LEFT, DPAD_RIGHT = 0x0001, 0x0002, 0x0004, 0x0008

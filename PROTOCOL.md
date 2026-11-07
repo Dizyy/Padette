@@ -1,15 +1,15 @@
-# JoyPad protocol, version 1
+# Padette protocol, version 1
 
 This describes the messages between the PC server and the web page in `client/`. Server-side validation lives in `server/protocol.py`.
 
 ## Transport
 
-- WebSocket at `ws://joypad.local/ws` or `ws://<pc-lan-ip>/ws`. The port is 80, or 8765 when 80 is taken (choose another with `--port`).
+- WebSocket at `ws://padette.local/ws` or `ws://<pc-lan-ip>/ws`. The port is 80, or 8765 when 80 is taken (choose another with `--port`).
 - Each WebSocket **text** frame holds one JSON object, UTF-8 encoded. On an encrypted connection (see [Encryption](#encryption)), every frame after the handshake is a **binary** frame holding one encrypted JSON object instead.
 - Every message, in both directions, has `"v": 1` and a `"type"` string.
 - The server only accepts connections from private/LAN addresses (10/8, 172.16/12, 192.168/16, link-local, loopback).
 - A frame can be at most 16 KB.
-- `GET /name` returns `{"name": "joypad.local"}` (with `:port` when not 80), or `{"name": null}` without a .local name. The QR code links to the IP address, which every phone can open; on iPhone/iPad the web client then moves to this name when it answers within 2.5 s, keeping the `#` part. The server keeps the PIN of such a move: its `Referer` is one of the server's own addresses (pages are served with `Referrer-Policy: origin`).
+- `GET /name` returns `{"name": "padette.local"}` (with `:port` when not 80), or `{"name": null}` without a .local name. The QR code links to the IP address, which every phone can open; on iPhone/iPad the web client then moves to this name when it answers within 2.5 s, keeping the `#` part. The server keeps the PIN of such a move: its `Referer` is one of the server's own addresses (pages are served with `Referrer-Policy: origin`).
 
 ## Session flow
 
@@ -47,7 +47,7 @@ Unknown extra fields are ignored, so later clients can add optional fields witho
 | type | fields | meaning |
 |---|---|---|
 | `enc_challenge` | `nonce`: 16 random bytes, base64url without padding | Reply to `enc_hello`, sent unencrypted. Everything after it is encrypted in both directions. |
-| `auth_ok` | `protocol`: 1; `token`: string (only after a PIN); optional `direct`: the server's IP address and port | Authenticated; input is accepted from now on. Keep `token` to log in again later: it is valid until the server stops. If the page's host name (`joypad.local`) stops resolving, connect to `ws://<direct>/ws` instead: the server accepts its own page from any of its addresses. |
+| `auth_ok` | `protocol`: 1; `token`: string (only after a PIN); optional `direct`: the server's IP address and port | Authenticated; input is accepted from now on. Keep `token` to log in again later: it is valid until the server stops. If the page's host name (`padette.local`) stops resolving, connect to `ws://<direct>/ws` instead: the server accepts its own page from any of its addresses. |
 | `auth_failed` | `reason`: `"wrong_pin"`, `"token_expired"` (the server restarted since the token was issued) or `"locked_out"`; `retry_after`: seconds (only when locked out) | The socket closes right after this. |
 | `pong` | `id`: the id from the ping, or null | Reply to `ping`. |
 | `player` | `n`: 1–4 | This phone is Windows' player `n` (the number games show). Sent after login, and again if it changes. |
@@ -83,12 +83,12 @@ Unknown extra fields are ignored, so later clients can add optional fields witho
 
 Optional, and used by the web client whenever it has the key. It keeps everything sent over the network (PIN and every button press) unreadable to others on the same network, and stops recorded traffic from being replayed.
 
-**The key.** The server keeps one random 32-byte key `K` in a file (`%APPDATA%\JoyPad\key`), so phones stay paired across restarts. `--new-key` replaces it, which unpairs every phone. The QR code carries `K` after `#` (`http://<pc-ip>/#p=123456&k=<base64url K>`; the web client also accepts the older `#pin=…&key=…`): browsers never send that part over the network, so `K` reaches the phone only through the camera. A PIN typed by hand doesn't give the phone `K`; such connections stay unencrypted. On iPhone/iPad, where a home-screen app gets its own empty storage, the web client keeps `#k=<K>` (never the PIN) in Safari's address once it has `K`, so an icon added from there carries `K` into the app.
+**The key.** The server keeps one random 32-byte key `K` in a file (`%APPDATA%\Padette\key`), so phones stay paired across restarts. `--new-key` replaces it, which unpairs every phone. The QR code carries `K` after `#` (`http://<pc-ip>/#p=123456&k=<base64url K>`; the web client also accepts the older `#pin=…&key=…`): browsers never send that part over the network, so `K` reaches the phone only through the camera. A PIN typed by hand doesn't give the phone `K`; such connections stay unencrypted. On iPhone/iPad, where a home-screen app gets its own empty storage, the web client keeps `#k=<K>` (never the PIN) in Safari's address once it has `K`, so an icon added from there carries `K` into the app.
 
 **Handshake.** The client sends `{"v":1,"type":"enc_hello","nonce":cn}` as its first message, with 16 fresh random bytes `cn`. The server replies `{"v":1,"type":"enc_challenge","nonce":sn}` with 16 fresh random bytes `sn`. Both then compute the session key
 
 ```
-session_key = SHA-512("JoyPad session v1" || K || sn || cn)[0:32]
+session_key = SHA-512("Padette session v1" || K || sn || cn)[0:32]
 ```
 
 **Frames.** From then on, every message in both directions is the usual JSON object, UTF-8 encoded and sealed with NaCl `secretbox` (XSalsa20-Poly1305) under `session_key`, sent as one binary frame (ciphertext with its 16-byte tag; the nonce is not sent). The 24-byte nonce is

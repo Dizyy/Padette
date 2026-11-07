@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 from .pad import RELEASED, DriverMissing, Notify, Pad, PadFactory, PadState
 
-log = logging.getLogger("joypad.players")
+log = logging.getLogger("padette.players")
 
 JOIN_TIMEOUT_S = 3.0  # counted from plug-in: the first plug-in can take Windows a while
 SILENCE_S = 0.75      # + one 0.25 s tick = released within 1 s of the last message

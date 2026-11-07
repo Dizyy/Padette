@@ -55,8 +55,8 @@ def main() -> int:
 
     print("Applying state")
     capture = Capture()
-    logging.getLogger("joypad.pad").addHandler(capture)
-    logging.getLogger("joypad.pad").setLevel(logging.INFO)
+    logging.getLogger("padette.pad").addHandler(capture)
+    logging.getLogger("padette.pad").setLevel(logging.INFO)
     one = pad.DryRunPads().factory(lambda *a: None)
     one.apply(pad.PadState(buttons=pad.A | pad.LB, lx=1.0, ly=1.0))
     line = capture.lines[-1] if capture.lines else ""

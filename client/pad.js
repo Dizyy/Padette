@@ -1,4 +1,4 @@
-// JoyPad controller: draws the layout, turns touches into a controller state and sends it
+// Padette controller: draws the layout, turns touches into a controller state and sends it
 // to the PC (protocol "pad" message) on every change and at least every 250 ms.
 (() => {
   'use strict';
@@ -240,7 +240,7 @@
       showOverlay('Game is full (4 players). Try again when someone leaves.');
     } else if (msg.type === 'driver_missing') {
       badge.hidden = true;
-      showOverlay('Controller driver missing: install ViGEmBus on the PC (see the JoyPad window).');
+      showOverlay('Controller driver missing: install ViGEmBus on the PC (see the Padette window).');
     } else if (msg.type === 'rumble') {
       if (navigator.vibrate) navigator.vibrate(msg.large || msg.small ? 40 + Math.round((Math.max(msg.large, msg.small) / 255) * 160) : 0);
     }

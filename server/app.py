@@ -23,7 +23,7 @@ from . import APP_NAME, encryption, protocol
 from .pad import PadFactory
 from .players import TICK_S, Players
 
-log = logging.getLogger("joypad")
+log = logging.getLogger("padette")
 
 CLIENT_DIR = Path(__file__).resolve().parent.parent / "client"
 
@@ -133,11 +133,11 @@ def create_app(pad_factory: PadFactory, pin: str, addresses: list[str] | None = 
     # Browsers leave out ":80", so accept that form too.
     allowed = None if addresses is None else {a for addr in addresses for a in (addr, addr.removesuffix(":80"))}
     # The page may be opened under one of these and connect through another: after a long
-    # sleep the phone sometimes can't look up joypad.local, so it falls back to the IP.
+    # sleep the phone sometimes can't look up padette.local, so it falls back to the IP.
     own_origins = None if allowed is None else {f"http://{a}" for a in allowed}
     direct = None if not addresses else addresses[-1].removesuffix(":80")  # the IP form
     ok_fields = {"protocol": protocol.PROTOCOL_VERSION, **({"direct": direct} if direct else {})}
-    # The .local name (e.g. "joypad.local"), when there is one. The QR code uses the IP
+    # The .local name (e.g. "padette.local"), when there is one. The QR code uses the IP
     # address, which every phone can open; iPhones then move over to this name (see app.js).
     local_name = addresses[0].removesuffix(":80") if addresses and len(addresses) > 1 else None
     channels: dict[str, Channel] = {}  # token -> the phone's connection

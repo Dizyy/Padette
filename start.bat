@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title JoyPad
+title Padette
 
 set "VENV_PY=.venv\Scripts\python.exe"
 if exist "%VENV_PY%" goto :update

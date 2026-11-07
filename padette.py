@@ -1,4 +1,4 @@
-"""Entry point of the single-file JoyPad.exe (made by build.py).
+"""Entry point of the single-file Padette.exe (made by build.py).
 
 On Windows it runs without a console: a tray icon and a window with the QR code, PIN and
 status (server/tray.py), which also installs updates. Elsewhere it installs updates, then

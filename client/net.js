@@ -1,4 +1,4 @@
-// JoyPad web client: connection, login and encryption. Speaks protocol v1 (see PROTOCOL.md)
+// Padette web client: connection, login and encryption. Speaks protocol v1 (see PROTOCOL.md)
 // over /ws. The controller (pad.js) talks to the PC only through window.Net.
 (() => {
   'use strict';
@@ -26,15 +26,15 @@
   const getPin = () => currentPin;
   const setPin = (pin) => { currentPin = pin; };
   const forgetPin = () => { currentPin = null; };
-  const getToken = () => store.get('jp.token');
-  const setToken = (token) => store.set('jp.token', token);
-  const forgetToken = () => store.remove('jp.token');
+  const getToken = () => store.get('pd.token');
+  const setToken = (token) => store.set('pd.token', token);
+  const forgetToken = () => store.remove('pd.token');
 
   // ---------- Encryption (see server/encryption.py and PROTOCOL.md) ----------
   // The QR code carries the PC's key after "#", so it never travels over the network.
   // With it, each connection agrees on a session key and every frame is encrypted and
   // numbered (NaCl secretbox via tweetnacl.js). A typed PIN alone connects unencrypted.
-  const SESSION_LABEL = new TextEncoder().encode('JoyPad session v1');
+  const SESSION_LABEL = new TextEncoder().encode('Padette session v1');
   const FROM_CLIENT = 0;
   const FROM_SERVER = 1;
   const canEncrypt = typeof nacl !== 'undefined';
@@ -49,12 +49,12 @@
     return Uint8Array.from(s, (c) => c.charCodeAt(0));
   }
   function getKey() {
-    const saved = store.get('jp.key');
+    const saved = store.get('pd.key');
     if (!saved || !canEncrypt) return null;
     try { const key = b64decode(saved); return key.length === 32 ? key : null; } catch { return null; }
   }
-  const setKey = (text) => store.set('jp.key', text);
-  const forgetKey = () => store.remove('jp.key');
+  const setKey = (text) => store.set('pd.key', text);
+  const forgetKey = () => store.remove('pd.key');
 
   function frameNonce(direction, counter) {
     const nonce = new Uint8Array(24);
@@ -80,8 +80,8 @@
   }
 
   // The PC's IP address, from auth_ok. After a long sleep the phone sometimes can't look up
-  // joypad.local any more; then the connection goes to the IP address instead.
-  const getDirect = () => store.get('jp.direct');
+  // padette.local any more; then the connection goes to the IP address instead.
+  const getDirect = () => store.get('pd.direct');
   let viaDirect = false;
   function failedToOpen() {
     const direct = getDirect();
@@ -205,7 +205,7 @@
         case 'auth_ok':
           authed = true;
           pinJustEntered = false;
-          if (msg.direct) store.set('jp.direct', msg.direct);
+          if (msg.direct) store.set('pd.direct', msg.direct);
           if (msg.token) {
             setToken(msg.token);
             if (getToken() === msg.token) forgetPin(); // keep the PIN if storage is blocked
@@ -226,15 +226,15 @@
           if (msg.reason === 'token_expired') {
             forgetToken();
             if (getPin()) authRejected = false; // try the scanned PIN next (onclose reconnects)
-            else showPin('JoyPad on the PC was restarted. Enter the new PIN from the JoyPad window.');
+            else showPin('Padette on the PC was restarted. Enter the new PIN from the Padette window.');
           } else if (msg.reason === 'locked_out') {
             showPin(`Too many wrong PINs. Try again in ${msg.retry_after || 60} s.`);
           } else {
             forgetToken();
             forgetPin();
             showPin(pinJustEntered
-              ? 'Wrong PIN. Check the JoyPad window on your PC.'
-              : 'The PIN on the PC has changed. Enter the new PIN from the JoyPad window.');
+              ? 'Wrong PIN. Check the Padette window on your PC.'
+              : 'The PIN on the PC has changed. Enter the new PIN from the Padette window.');
           }
           pinJustEntered = false;
           break;
@@ -259,14 +259,14 @@
         forgetKey();
         cleanAddress();
         authRejected = true;
-        showPin('JoyPad has a new encryption key. Scan the QR code on the PC again, or enter the PIN to connect without encryption.');
+        showPin('Padette has a new encryption key. Scan the QR code on the PC again, or enter the PIN to connect without encryption.');
       }
       if (event.code === CLOSE_REPLACED) {
         // Reconnecting by itself would take the controller back from the other tab, which
         // would take it back again, forever. Wait until this tab is used.
         replaced = true;
         setStatus(false, 'Open in another tab');
-        showToast('JoyPad is open in another tab.', {
+        showToast('Padette is open in another tab.', {
           ms: 24 * 3600 * 1000, button: 'Use here', onButton: () => { reconnectDelay = 500; connect(); },
         });
       } else if (authRejected) {
@@ -356,10 +356,10 @@
     connect();
   });
 
-  // Opened from the QR code in the JoyPad window: the PIN (and the encryption key) come
+  // Opened from the QR code in the Padette window: the PIN (and the encryption key) come
   // after "#", which the browser never sends anywhere. Use it, then wipe it so it isn't kept in history or an icon.
   // Pages linked from other websites arrive as /?from=link (see server/app.py): there the
-  // PIN is ignored, so a website can't make JoyPad try wrong PINs.
+  // PIN is ignored, so a website can't make Padette try wrong PINs.
   // A home-screen icon opens "#k=…" (see cleanAddress): the key only, no PIN.
   // Returns true when a PIN or key from the address was taken.
   function takePinFromQr() {
@@ -384,12 +384,12 @@
   // the app could never get the key. In Safari the address therefore keeps "#k=<key>" (never the
   // PIN): an icon added from there carries the key over. Like the QR code, "#" never leaves the phone.
   function cleanAddress() {
-    const key = store.get('jp.key');
+    const key = store.get('pd.key');
     const keep = appleTouch && !homeScreenApp && canEncrypt && key;
     history.replaceState(null, '', location.pathname + (keep ? `#k=${key}` : ''));
   }
 
-  // Scanning again while JoyPad is already open only changes the "#" part.
+  // Scanning again while Padette is already open only changes the "#" part.
   window.addEventListener('hashchange', () => {
     if (takePinFromQr()) {
       dropConnection(false);
@@ -420,7 +420,7 @@
     }
   }
 
-  // Opened in the browser: suggest adding JoyPad to the home screen (full screen, no address
+  // Opened in the browser: suggest adding Padette to the home screen (full screen, no address
   // bar). Shown once per page load on up to 3 visits, or until "Got it". Waits a few seconds so it
   // doesn't cover the "Not encrypted" message.
   const android = /Android/.test(navigator.userAgent);
@@ -429,15 +429,15 @@
     if (homeTipShown || homeScreenApp || !(appleTouch || android)) return;
     // Without the key an icon would connect unencrypted; the "Not encrypted" message says to scan.
     if (appleTouch && !getKey()) return;
-    const shown = Number(store.get('jp.hometip')) || 0;
+    const shown = Number(store.get('pd.hometip')) || 0;
     if (shown >= 3) return;
     homeTipShown = true;
     setTimeout(() => {
       if (!toast.hidden) return;
-      store.set('jp.hometip', String(shown + 1));
+      store.set('pd.hometip', String(shown + 1));
       const how = appleTouch ? 'tap Share, then Add to Home Screen' : 'tap ⋮, then Add to Home screen';
-      showToast(`Tip: ${how} to open JoyPad full screen.`, {
-        ms: 15000, button: 'Got it', onButton: () => store.set('jp.hometip', '3'),
+      showToast(`Tip: ${how} to open Padette full screen.`, {
+        ms: 15000, button: 'Got it', onButton: () => store.set('pd.hometip', '3'),
       });
     }, 7000);
   }
