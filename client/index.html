@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>JoyPad</title>
+  <meta name="theme-color" content="#1a1916">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="JoyPad">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="status" id="status" aria-live="polite">
+        <span class="dot" id="status-dot"></span>
+        <span id="status-text">Connecting…</span>
+      </div>
+    </header>
+    <main class="views" id="pad"></main>
+  </div>
+
+  <div class="sheet" id="pin-sheet" hidden>
+    <form class="sheet-card" id="pin-form" role="dialog" aria-modal="true" aria-labelledby="pin-title">
+      <h2 id="pin-title">Enter PIN</h2>
+      <p class="muted">The 6-digit PIN is shown in the JoyPad window on the PC.</p>
+      <input id="pin-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6"
+             autocomplete="one-time-code" placeholder="••••••" aria-label="PIN">
+      <p class="error" id="pin-error" hidden></p>
+      <button class="primary-btn wide" type="submit">Connect</button>
+    </form>
+  </div>
+
+  <div class="toast" id="toast" role="status" hidden>
+    <span id="toast-text"></span>
+    <button class="toast-btn" id="toast-btn" hidden></button>
+  </div>
+
+  <script src="vendor/nacl-fast.min.js"></script>
+  <script src="net.js"></script>
+</body>
+</html>

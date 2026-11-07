@@ -1,0 +1,18 @@
+# Local Python environment (created by start.bat; contains machine-specific paths)
+.venv/
+.deps/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# OS / editor clutter
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+
+# Single-file build output (build.py)
+build/
+dist/
