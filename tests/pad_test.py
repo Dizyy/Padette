@@ -74,6 +74,28 @@ def main() -> int:
         raised = True
     check(raised, "missing driver -> DriverMissing")
 
+    print("Plug-in errors")
+    import types
+    fake = types.ModuleType("vgamepad")
+
+    class FakePad:
+        report = types.SimpleNamespace(wButtons=0)
+
+        def register_notification(self, callback_function):
+            raise RuntimeError("Cannot register a callback")
+    fake.VX360Gamepad = FakePad
+    sys.modules["vgamepad"] = fake
+    try:
+        pad.vigem_factory(lambda *a: None)
+        outcome = "no error"
+    except pad.DriverMissing:
+        outcome = "DriverMissing"
+    except Exception as exc:
+        outcome = type(exc).__name__
+    finally:
+        del sys.modules["vgamepad"]
+    check(outcome == "DriverMissing", f"any error while plugging in -> DriverMissing ({outcome})")
+
     print()
     if failures:
         print(f"{len(failures)} FAILED")

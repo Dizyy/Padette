@@ -140,6 +140,74 @@ def main() -> int:
     s.players.close_all()
     check(s.pads.closed == 2 and s.players.snapshot() == [], "shutdown removes every pad")
 
+    print("Review fixes")
+    import logging
+    records: list[str] = []
+
+    class Grab(logging.Handler):
+        def emit(self, record):
+            records.append(record.getMessage())
+    logging.getLogger("joypad.players").addHandler(Grab())
+
+    # A driver failure mid-game: that phone hears driver_missing, the log gets one line.
+    s = Setup()
+    s.players.join("a")
+    s.players.join("b")
+
+    def broken2(state):
+        raise OSError("driver gone")
+    s.pads.pads[0].apply = broken2
+    records.clear()
+    for _ in range(30):
+        s.players.apply("a", A)
+    s.players.apply("b", A)
+    check(s.last("a") == {"type": "driver_missing"}, f"failing controller -> phone told driver_missing ({s.last('a')})")
+    check(sum("failed" in r for r in records) == 1, f"logged once, not 30 times ({len(records)} lines)")
+    check(s.pads.pads[0].closed and s.pads.pads[1].states[-1] == A, "broken pad unplugged, player 2 still plays")
+
+    # Any error while plugging in (not only DriverMissing) leaves no silent, dead player.
+    class Boom:
+        calls = 0
+
+        def factory(self, on_notify):
+            self.calls += 1
+            raise RuntimeError("register_notification failed")
+    boom = Boom()
+    sent: list = []
+    players = Players(boom.factory, lambda t, m: sent.append((t, m)), Clock())
+    players.join("a")
+    players.join("a")
+    check(sent[-1] == ("a", {"type": "driver_missing"}) and boom.calls == 2 and players.snapshot() == [],
+          f"plug-in error -> driver_missing, and a rejoin tries again ({boom.calls} tries)")
+
+    # A slow first plug-in is not "Game is full": the wait starts once the pad exists.
+    clock = Clock()
+    sent = []
+    late: dict = {}
+
+    def slow_factory(on_notify):
+        clock.now += 2.0  # Windows setting up the device the first time
+        late["notify"] = on_notify
+        return pad.DryRunPads().factory(lambda *a: None)
+    players = Players(slow_factory, lambda t, m: sent.append((t, m)), clock)
+    players.join("a")
+    players.tick()
+    clock.now += JOIN_TIMEOUT_S - 0.5
+    players.tick()
+    check(("a", {"type": "full"}) not in sent, "slow plug-in (2 s) -> no false 'Game is full'")
+    late["notify"](1, 0, 0)
+    check(sent[-1] == ("a", {"type": "player", "n": 1}), "its number arrives late -> Player 1")
+    check(JOIN_TIMEOUT_S >= 3, f"Windows gets at least 3 s to give a number ({JOIN_TIMEOUT_S})")
+
+    # Release within 1 s, even when the tick falls just after the deadline.
+    s = Setup()
+    s.players.join("a")
+    p1 = s.pads.pads[0]
+    s.players.apply("a", A)
+    for _ in range(4):
+        s.wait(0.25)
+    check(p1.states[-1] == pad.RELEASED, "held button released within 1.0 s of silence (0.25 s ticks)")
+
     print()
     if failures:
         print(f"{len(failures)} FAILED")

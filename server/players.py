@@ -1,7 +1,9 @@
 """The players: one virtual controller per logged-in phone, keyed by the phone's login token.
 
 - Windows decides each controller's player number; it arrives through the pad's notification.
-  No number within JOIN_TIMEOUT_S means all 4 spots are taken: the phone gets "full".
+  No number within JOIN_TIMEOUT_S of plugging in means all 4 spots are taken: "full".
+- A controller the driver refuses (on plug-in or mid-game) is removed: the phone gets
+  "driver_missing" and the log gets one line, not one per message.
 - No stuck input: a pad that hears nothing for SILENCE_S is released (no buttons, sticks
   centred). The phone repeats its state every 250 ms, so only a real dropout gets here.
 - A phone that disconnects keeps its pad, released, for HOLD_S, so a screen lock or Wi-Fi blip
@@ -20,8 +22,8 @@ from .pad import RELEASED, DriverMissing, Notify, Pad, PadFactory, PadState
 
 log = logging.getLogger("joypad.players")
 
-JOIN_TIMEOUT_S = 1.0
-SILENCE_S = 1.0
+JOIN_TIMEOUT_S = 3.0  # counted from plug-in: the first plug-in can take Windows a while
+SILENCE_S = 0.75      # + one 0.25 s tick = released within 1 s of the last message
 HOLD_S = 30.0
 TICK_S = 0.25  # how often the app calls tick()
 
@@ -60,15 +62,20 @@ class Players:
             player = self._players[token] = _Player(joined=now, last_state=now)
         try:
             pad = self._factory(self._notifier(token))
-        except DriverMissing as exc:
-            log.warning("Controller driver missing: %s", exc)
+        except Exception as exc:  # DriverMissing, or anything else while plugging in
+            if isinstance(exc, DriverMissing):
+                log.warning("Controller driver missing: %s", exc)
+            else:
+                log.exception("Could not plug in a controller")
             with self._lock:
-                self._players.pop(token, None)
+                if self._players.get(token) is player:
+                    del self._players[token]  # no silent, dead player left behind
             self._notify(token, {"type": "driver_missing"})
             return
         with self._lock:
             if self._players.get(token) is player:
                 player.pad = pad
+                player.joined = self._clock()  # the wait for a number starts now
                 return
         pad.close()  # close_all() ran meanwhile
 
@@ -79,23 +86,28 @@ class Players:
                 return
             player.last_state = self._clock()
             player.released = state == RELEASED
-            self._apply(player, state)
+            if self._apply(player, state):
+                return
+            del self._players[token]
+        self._broken(token, player)
 
     def leave(self, token: str) -> None:
         with self._lock:
             player = self._players.get(token)
             if player is None:
                 return
-            if player.pad is not None:
-                self._apply(player, RELEASED)
             player.released = True
             player.away_since = self._clock()
+            if player.pad is None or self._apply(player, RELEASED):
+                return
+            del self._players[token]
+        self._broken(token, player)
 
     # ---------- housekeeping ----------
 
     def tick(self) -> None:
         now = self._clock()
-        full, gone = [], []
+        full, gone, broken = [], [], []
         with self._lock:
             for token, player in list(self._players.items()):
                 if player.away_since is not None:
@@ -106,7 +118,10 @@ class Players:
                     gone.append(self._players.pop(token))
                 elif not player.released and now - player.last_state >= SILENCE_S:
                     player.released = True
-                    self._apply(player, RELEASED)
+                    if not self._apply(player, RELEASED):
+                        broken.append((token, self._players.pop(token)))
+        for token, player in broken:
+            self._broken(token, player)
         for player in gone:
             self._close(player)
         for token in full:
@@ -145,11 +160,19 @@ class Players:
                 self._notify(token, msg)
         return on_notify
 
-    def _apply(self, player: _Player, state: PadState) -> None:
+    def _apply(self, player: _Player, state: PadState) -> bool:
+        """False when the driver refused: the caller removes that player (see _broken)."""
         try:
             player.pad.apply(state)
+            return True
         except Exception:
-            log.exception("Controller update failed (player %s)", player.number)
+            log.exception("Controller update failed (player %s): removing it", player.number)
+            return False
+
+    def _broken(self, token: str, player: _Player) -> None:
+        """Called outside the lock for a player already taken out of the list."""
+        self._close(player)
+        self._notify(token, {"type": "driver_missing"})
 
     def _close(self, player: _Player) -> None:
         if player.pad is None:

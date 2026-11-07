@@ -88,9 +88,17 @@
     return dirs;
   }
 
+  // A touch the browser never ended (lost touchend) would keep its button held, and the
+  // keepalive would repeat it forever: drop every finger the browser no longer reports.
+  function dropLostTouches(e) {
+    const live = new Set([...e.touches].map((t) => t.identifier));
+    for (const id of [...touches.keys()]) if (!live.has(id)) release(id);
+  }
+
   function onStart(e) {
     if (editing) return;
     e.preventDefault();
+    dropLostTouches(e);
     goFullscreen();
     for (const touch of e.changedTouches) {
       const el = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('.ctl');
@@ -116,12 +124,13 @@
       el.classList.add('held');
       touches.set(touch.identifier, t);
     }
-    pump();
+    flush(); // presses go out at once: a tap shorter than a frame must not get lost
   }
 
   function onMove(e) {
     if (editing) return;
     e.preventDefault();
+    dropLostTouches(e);
     for (const touch of e.changedTouches) {
       const t = touches.get(touch.identifier);
       if (!t) continue;
@@ -134,7 +143,7 @@
   // touchcancel (a notification banner, a system swipe) releases exactly like touchend.
   function onEnd(e) {
     for (const touch of e.changedTouches) release(touch.identifier);
-    pump();
+    flush();
   }
 
   function release(id) {

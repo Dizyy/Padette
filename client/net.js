@@ -103,6 +103,8 @@
   let pinJustEntered = false; // typed just now, rather than reused for a reconnect
   let warnedUnencrypted = false;
   const CLOSE_BAD_FRAME = 4032; // the server couldn't decrypt what we sent
+  const CLOSE_REPLACED = 4009;  // the same phone connected in another tab
+  let replaced = false;         // then this tab waits until it's used again
 
   function setStatus(connected, text) {
     statusEl.classList.toggle('connected', connected);
@@ -150,8 +152,10 @@
     clearTimeout(reconnectTimer);
     if (ws) return;
     const pin = getPin();
-    // A freshly entered or scanned PIN wins over an old token.
-    const token = pin ? null : getToken();
+    // The saved token first, so scanning the QR code again keeps this phone's player instead
+    // of making a second controller. The PIN is used when there is no token or it expired.
+    const token = getToken();
+    replaced = false;
     if (!pin && !token) { setStatus(false, 'Enter PIN'); showPin(); return; }
 
     setStatus(false, 'Connecting…');
@@ -221,7 +225,8 @@
           authRejected = true;
           if (msg.reason === 'token_expired') {
             forgetToken();
-            showPin('JoyPad on the PC was restarted. Enter the new PIN from the JoyPad window.');
+            if (getPin()) authRejected = false; // try the scanned PIN next (onclose reconnects)
+            else showPin('JoyPad on the PC was restarted. Enter the new PIN from the JoyPad window.');
           } else if (msg.reason === 'locked_out') {
             showPin(`Too many wrong PINs. Try again in ${msg.retry_after || 60} s.`);
           } else {
@@ -256,7 +261,15 @@
         authRejected = true;
         showPin('JoyPad has a new encryption key. Scan the QR code on the PC again, or enter the PIN to connect without encryption.');
       }
-      if (authRejected) {
+      if (event.code === CLOSE_REPLACED) {
+        // Reconnecting by itself would take the controller back from the other tab, which
+        // would take it back again, forever. Wait until this tab is used.
+        replaced = true;
+        setStatus(false, 'Open in another tab');
+        showToast('JoyPad is open in another tab.', {
+          ms: 24 * 3600 * 1000, button: 'Use here', onButton: () => { reconnectDelay = 500; connect(); },
+        });
+      } else if (authRejected) {
         setStatus(false, 'Not connected');
       } else {
         if (!opened) failedToOpen();
@@ -277,7 +290,13 @@
     if (now - lastWake < 1000) return; // these events often fire together
     lastWake = now;
     reconnectDelay = 500;
-    if (!ws) { if (getPin() || getToken()) connect(); return; }
+    if (!ws) {
+      if (getPin() || getToken()) {
+        if (replaced) toast.hidden = true;
+        connect();
+      }
+      return;
+    }
     if (!authed) return; // still connecting
     rawSend({ type: 'ping', id: ++pingId });
     setTimeout(() => { if (ws && authed && lastPong < now) dropConnection(true); }, 2000);
@@ -296,7 +315,6 @@
 
   function showToast(text, { bad = false, ms = 4000, button = null, onButton = null } = {}) {
     clearTimeout(toastTimer);
-    clearInterval(countdownTimer); // a new message (e.g. "Shutdown cancelled.") ends any countdown
     toastText.textContent = text;
     toast.classList.toggle('bad', bad);
     toastBtn.hidden = !button;

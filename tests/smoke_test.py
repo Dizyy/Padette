@@ -428,7 +428,7 @@ async def login(url: str, token: str | None = None):
     ws = await websockets.connect(url)
     await send(ws, {"type": "auth", **({"token": token} if token else {"pin": "123456"})})
     ok = await recv_json(ws)
-    first = await recv_json(ws, timeout=2.5, skip=())
+    first = await recv_json(ws, timeout=4.5, skip=())
     return ws, ok.get("token", token), first
 
 

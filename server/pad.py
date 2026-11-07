@@ -61,18 +61,19 @@ class DriverMissing(Exception):
 
 class VigemPad:
     def __init__(self, on_notify: Notify):
-        try:
-            import vgamepad  # connects to ViGEmBus on import; fails when it isn't installed
-            self._pad = vgamepad.VX360Gamepad()
-        except Exception as exc:
-            raise DriverMissing(str(exc)) from exc
-
         def notification(client, target, large_motor, small_motor, led_number, user_data):
             on_notify(led_number + 1 if 0 <= led_number <= 3 else None, large_motor, small_motor)
 
-        self._pad.register_notification(callback_function=notification)
-        # A pad that was never updated reports a crooked stick: start released.
-        self.apply(RELEASED)
+        self._pad = None
+        try:
+            vgamepad = importlib.import_module("vgamepad")  # connects to ViGEmBus; fails without it
+            self._pad = vgamepad.VX360Gamepad()
+            self._pad.register_notification(callback_function=notification)
+            # A pad that was never updated reports a crooked stick: start released.
+            self.apply(RELEASED)
+        except Exception as exc:  # any failure while plugging in: no half-made controller
+            self._pad = None  # vgamepad unplugs it when the object goes away
+            raise DriverMissing(str(exc)) from exc
 
     def apply(self, state: PadState) -> None:
         pad = self._pad
