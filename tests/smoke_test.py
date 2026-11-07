@@ -32,7 +32,8 @@ sys.path.insert(0, str(ROOT))
 import segno  # noqa: E402
 from nacl.secret import SecretBox  # noqa: E402
 from server.__main__ import connect_url  # noqa: E402
-from server.app import PinGuard  # noqa: E402
+from server.app import PinGuard, create_app  # noqa: E402
+from server import pad  # noqa: E402
 from server.encryption import load_key  # noqa: E402
 from server.qr import qr_lines  # noqa: E402
 HOST = "127.0.0.1"
@@ -156,23 +157,34 @@ class EncryptedClient:
         return frame
 
     async def recv(self) -> dict:
-        data = await asyncio.wait_for(self.ws.recv(), 3)
-        assert isinstance(data, bytes), f"expected an encrypted frame, got {data!r}"
-        msg = json.loads(self.box.decrypt(data, self.nonce(1, self.received)))
-        self.received += 1
-        return msg
+        while True:
+            data = await asyncio.wait_for(self.ws.recv(), 3)
+            assert isinstance(data, bytes), f"expected an encrypted frame, got {data!r}"
+            msg = json.loads(self.box.decrypt(data, self.nonce(1, self.received)))
+            self.received += 1
+            if msg.get("type") not in UNSOLICITED:
+                return msg
 
 
-async def recv_json(ws, timeout=3.0) -> dict:
-    return json.loads(await asyncio.wait_for(ws.recv(), timeout))
+# Sent by the server on its own (player number, full game, rumble): skipped by recv_json.
+UNSOLICITED = {"player", "full", "driver_missing", "rumble"}
+
+
+async def recv_json(ws, timeout=3.0, skip=UNSOLICITED) -> dict:
+    while True:
+        msg = json.loads(await asyncio.wait_for(ws.recv(), timeout))
+        if msg.get("type") not in skip:
+            return msg
 
 
 async def expect_closed(ws) -> int | None:
     try:
-        await asyncio.wait_for(ws.recv(), 3)
+        while True:
+            msg = await asyncio.wait_for(ws.recv(), 3)
+            if not (isinstance(msg, str) and json.loads(msg).get("type") in UNSOLICITED):
+                return None
     except websockets.ConnectionClosed as exc:
         return exc.rcvd.code if exc.rcvd else None
-    return None
 
 
 def send(ws, msg: dict):
@@ -390,8 +402,96 @@ def check_qr() -> None:
     check(drawn == expected_matrix, f"QR drawing matches the code for {url} ({len(expected_matrix)} modules)")
 
 
+class InProcess:
+    """A server in this process, so the test can look at its dry-run pads."""
+
+    def __init__(self, missing: bool = False):
+        import uvicorn
+        self.pads = pad.DryRunPads(missing=missing)
+        self.events: list[list[tuple[int | None, bool]]] = []
+        self.port = free_port()
+        app = create_app(self.pads.factory, "123456", on_players=self.events.append)
+        self.server = uvicorn.Server(uvicorn.Config(app, host=HOST, port=self.port, log_level="warning"))
+        self.thread = threading.Thread(target=self.server.run, daemon=True)
+        self.thread.start()
+        while not self.server.started:
+            time.sleep(0.05)
+        self.url = f"ws://{HOST}:{self.port}/ws"
+
+    def stop(self) -> None:
+        self.server.should_exit = True
+        self.thread.join(5)
+
+
+async def login(url: str, token: str | None = None):
+    """Logs a phone in; returns (socket, token, first controller message)."""
+    ws = await websockets.connect(url)
+    await send(ws, {"type": "auth", **({"token": token} if token else {"pin": "123456"})})
+    ok = await recv_json(ws)
+    first = await recv_json(ws, timeout=2.5, skip=())
+    return ws, ok.get("token", token), first
+
+
+async def wait_until(condition, timeout: float = 2.0) -> bool:
+    deadline = time.monotonic() + timeout
+    while not condition() and time.monotonic() < deadline:
+        await asyncio.sleep(0.02)
+    return condition()
+
+
+def check_players() -> None:
+    print("Players (up to 4 phones as controllers)")
+    srv = InProcess()
+
+    async def phones() -> None:
+        phones = [await login(srv.url) for _ in range(5)]
+        firsts = [first for _, _, first in phones]
+        check(firsts[:4] == [{"v": 1, "type": "player", "n": n} for n in (1, 2, 3, 4)],
+              f"phones 1-4 -> players 1-4 ({firsts[:4]})")
+        check(firsts[4] == {"v": 1, "type": "full"}, f"phone 5 -> full ({firsts[4]})")
+        (ws1, token1, _), (ws2, token2, _) = phones[0], phones[1]
+        pad1 = srv.pads.pads[0]
+
+        await send(ws1, {"type": "pad", **GOOD_PAD})
+        check(await wait_until(lambda: pad1.states and pad1.states[-1].buttons == pad.A | pad.LB),
+              "pad message from phone 1 reaches controller 1")
+        await asyncio.sleep(1.3)
+        check(pad1.states[-1] == pad.RELEASED, "phone 1 silent for 1 s -> controller 1 released")
+
+        await ws2.close()
+        check(await wait_until(lambda: (2, True) in (srv.events[-1] if srv.events else [])),
+              f"PC window shows player 2 away ({srv.events[-1] if srv.events else None})")
+        ws2, _, first = await login(srv.url, token2)
+        check(first == {"v": 1, "type": "player", "n": 2}, f"phone 2 back with its token -> player 2 again ({first})")
+
+        ws1b, _, first = await login(srv.url, token1)
+        code = await expect_closed(ws1)
+        check(code == 4009 and first == {"v": 1, "type": "player", "n": 1},
+              f"same phone on a 2nd socket -> old one closed ({code}), still player 1")
+        check(sum(not p.closed for p in srv.pads.pads) == 4, "still 4 controllers, not 5")
+        for ws, *_ in [(ws1b,), (ws2,), *phones[2:]]:
+            await ws.close()
+
+    asyncio.run(phones())
+    srv.stop()
+    check(all(p.closed for p in srv.pads.pads), "server stop unplugs every controller")
+
+    srv = InProcess(missing=True)
+
+    async def no_driver() -> None:
+        ws, _, first = await login(srv.url)
+        check(first == {"v": 1, "type": "driver_missing"}, f"driver missing -> driver_missing ({first})")
+        await send(ws, {"type": "ping", "id": 1})
+        check((await recv_json(ws)).get("type") == "pong", "connection stays open without the driver")
+        await ws.close()
+
+    asyncio.run(no_driver())
+    srv.stop()
+
+
 def main() -> int:
     check_qr()
+    check_players()
     port = free_port()
     server = Server(port)
     try:

@@ -11,6 +11,8 @@ import mimetypes
 import secrets
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
@@ -18,6 +20,8 @@ from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import APP_NAME, encryption, protocol
+from .pad import PadFactory
+from .players import TICK_S, Players
 
 log = logging.getLogger("joypad")
 
@@ -118,7 +122,7 @@ class Channel:
             await self.ws.send_bytes(self.session.encrypt(text))
 
 
-def create_app(pad_factory, pin: str, addresses: list[str] | None = None,
+def create_app(pad_factory: PadFactory, pin: str, addresses: list[str] | None = None,
                key: bytes | None = None,
                on_players: Callable[[list[tuple[int | None, bool]]], None] | None = None) -> FastAPI:
     """`pad_factory` makes one virtual controller per phone (see pad.py).
@@ -136,11 +140,57 @@ def create_app(pad_factory, pin: str, addresses: list[str] | None = None,
     # The .local name (e.g. "joypad.local"), when there is one. The QR code uses the IP
     # address, which every phone can open; iPhones then move over to this name (see app.js).
     local_name = addresses[0].removesuffix(":80") if addresses and len(addresses) > 1 else None
-    app = FastAPI(title=APP_NAME, docs_url=None, redoc_url=None, openapi_url=None)
+    channels: dict[str, Channel] = {}  # token -> the phone's connection
+    loops: list[asyncio.AbstractEventLoop] = []  # the server's event loop, once it runs
+
+    def notify(token: str, msg: dict) -> None:
+        """Sends a message to one phone. Safe to call from any thread (driver callbacks)."""
+        if not loops:
+            return
+        async def deliver() -> None:
+            ch = channels.get(token)
+            if ch is not None:
+                try:
+                    await ch.send(protocol.make(msg["type"], **{k: v for k, v in msg.items() if k != "type"}))
+                except Exception:  # the socket is closing; the phone gets it on rejoin
+                    pass
+        try:
+            running = asyncio.get_running_loop()
+        except RuntimeError:
+            running = None
+        if running is loops[0]:
+            running.create_task(deliver())
+        else:
+            asyncio.run_coroutine_threadsafe(deliver(), loops[0])
+
+    players = Players(pad_factory, notify)
+    # One worker keeps controller updates strictly ordered and off the event loop.
+    executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="pads")
+
+    async def housekeeping() -> None:
+        last = None
+        while True:
+            await asyncio.sleep(TICK_S)
+            await asyncio.get_running_loop().run_in_executor(executor, players.tick)
+            now = players.snapshot()
+            if on_players and now != last:
+                on_players(now)
+            last = now
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        loops[:] = [asyncio.get_running_loop()]
+        task = asyncio.create_task(housekeeping())
+        try:
+            yield
+        finally:
+            task.cancel()
+            players.close_all()  # no virtual controllers left behind in Windows
+
+    app = FastAPI(title=APP_NAME, docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     guard = PinGuard(pin)
     # Handed out after a correct PIN; valid until the server stops, like the PIN itself.
     tokens: set[str] = set()
-    channels: dict[str, Channel] = {}  # token -> the phone's connection
 
     def wrong_host(host_header: str | None) -> bool:
         return allowed is not None and (host_header or "").lower() not in allowed
@@ -275,6 +325,8 @@ def create_app(pad_factory, pin: str, addresses: list[str] | None = None,
             if old is not None:  # the same phone again (new tab, or a reconnect): newest wins
                 await old.ws.close(CLOSE_REPLACED)
             channels[token] = ch
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(executor, players.join, token)
             while True:
                 raw = await ch.recv()
                 try:
@@ -282,7 +334,9 @@ def create_app(pad_factory, pin: str, addresses: list[str] | None = None,
                 except protocol.ProtocolError as exc:
                     await ch.send(protocol.error(exc.code, exc.message))
                     continue
-                if type_ == "ping":
+                if type_ == "pad":
+                    await loop.run_in_executor(executor, players.apply, token, fields["state"])
+                elif type_ == "ping":
                     await ch.send(protocol.make("pong", id=fields["id"]))
                 elif type_ == "auth":
                     await ch.send(protocol.make("auth_ok", **ok_fields))
@@ -297,8 +351,9 @@ def create_app(pad_factory, pin: str, addresses: list[str] | None = None,
             log.warning("Closed connection from %s: %s", host, exc)
             await ws.close(CLOSE_BAD_FRAME)
         finally:
-            if token is not None and channels.get(token) is ch:
+            if token is not None and channels.get(token) is ch:  # not replaced by a newer socket
                 del channels[token]
+                await asyncio.get_running_loop().run_in_executor(executor, players.leave, token)
             log.info("Client disconnected: %s", host)
 
     @app.get("/name")

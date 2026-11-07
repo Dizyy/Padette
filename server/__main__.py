@@ -18,6 +18,7 @@ from fastapi import FastAPI
 from . import APP_NAME, APP_SLUG, __version__, encryption
 from .app import create_app, is_lan_address
 from .mdns import MdnsResponder
+from .pad import DryRunPads, vigem_factory
 from .qr import qr_lines
 
 # Port 80 lets the phone open the address without ":port"; 8765 if something else has 80.
@@ -157,7 +158,7 @@ def prepare(args: argparse.Namespace,
     pin = f"{secrets.randbelow(1_000_000):06d}"
     key_file = Path(args.key_file) if args.key_file else encryption.default_key_file()
     key = encryption.load_key(key_file, new=args.new_key)
-    pad_factory = None  # set in Task 5
+    pad_factory = DryRunPads().factory if args.dry_run else vigem_factory
     names = [hostname, host] if hostname else [host]
     app = create_app(pad_factory, pin, addresses=[f"{name}:{port}" for name in names], key=key,
                      on_players=on_players)
