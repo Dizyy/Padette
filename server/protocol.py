@@ -1,6 +1,7 @@
 """JoyPad wire protocol, version 1.
 
-Pure validation logic with no dependency on FastAPI, the gamepad driver or the web client.
+Pure validation logic with no dependency on FastAPI, the gamepad driver or the web client
+(pad.py only provides the button bits and the PadState type).
 See PROTOCOL.md for the human-readable specification.
 """
 
@@ -10,6 +11,8 @@ import base64
 import json
 import math
 from typing import Any
+
+from .pad import VALID_BUTTONS, PadState
 
 PROTOCOL_VERSION = 1
 
@@ -74,6 +77,22 @@ def _validate_enc_hello(msg: dict) -> dict:
     return {"nonce": raw}
 
 
+def _validate_pad(msg: dict) -> dict:
+    # The whole controller state, sent on every change and at least every 250 ms.
+    # "b": button bitmask (XUSB values, see pad.py); sticks -1..1 with +y = up; triggers 0..1.
+    for field in ("b", "lx", "ly", "rx", "ry", "lt", "rt"):
+        if field not in msg:
+            raise ProtocolError("bad_field", f"'{field}' is missing")
+    buttons = msg["b"]
+    if isinstance(buttons, bool) or not isinstance(buttons, int) or buttons < 0 or buttons & ~VALID_BUTTONS:
+        raise ProtocolError("bad_field", "'b' must be a button bitmask (see PROTOCOL.md)")
+    lt, rt = _number(msg, "lt", 1), _number(msg, "rt", 1)
+    if lt < 0 or rt < 0:
+        raise ProtocolError("bad_field", "'lt' and 'rt' must be between 0 and 1")
+    return {"state": PadState(buttons, _number(msg, "lx", 1), _number(msg, "ly", 1),
+                              _number(msg, "rx", 1), _number(msg, "ry", 1), lt, rt)}
+
+
 def _validate_ping(msg: dict) -> dict:
     # "id" is optional and echoed back verbatim in the pong.
     if "id" in msg and not isinstance(msg["id"], (int, float, str)):
@@ -85,6 +104,7 @@ _VALIDATORS = {
     "auth": _validate_auth,
     "enc_hello": _validate_enc_hello,
     "ping": _validate_ping,
+    "pad": _validate_pad,
 }
 
 MESSAGE_TYPES = tuple(_VALIDATORS)

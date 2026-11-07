@@ -38,6 +38,7 @@ The server only accepts requests whose `Host` header is the address it printed, 
 | `auth` | `pin`: string, **or** `token`: string | Authenticate. Must be first (or first after the encryption handshake). `token` is one an earlier `auth_ok` returned; it lets a client log in again without the PIN. |
 | `enc_hello` | `nonce`: 16 random bytes, base64url without padding | Start an encrypted connection. Only allowed as the very first message; see [Encryption](#encryption). |
 | `ping` | `id`: number or string, optional | Server replies `pong` with the same `id`. |
+| `pad` | `b`: button bitmask; `lx`, `ly`, `rx`, `ry`: −1…1; `lt`, `rt`: 0…1 (all required) | The whole controller state. Send it whenever it changes (at most 60 per second) and repeat it at least every 250 ms. The server releases the controller (no buttons, sticks centred) after 1 s without a message, and when the socket closes. Sticks: +x = right, **+y = up**. No reply. |
 
 Unknown extra fields are ignored, so later clients can add optional fields without breaking older servers.
 
@@ -49,6 +50,10 @@ Unknown extra fields are ignored, so later clients can add optional fields witho
 | `auth_ok` | `protocol`: 1; `token`: string (only after a PIN); optional `direct`: the server's IP address and port | Authenticated; input is accepted from now on. Keep `token` to log in again later: it is valid until the server stops. If the page's host name (`joypad.local`) stops resolving, connect to `ws://<direct>/ws` instead: the server accepts its own page from any of its addresses. |
 | `auth_failed` | `reason`: `"wrong_pin"`, `"token_expired"` (the server restarted since the token was issued) or `"locked_out"`; `retry_after`: seconds (only when locked out) | The socket closes right after this. |
 | `pong` | `id`: the id from the ping, or null | Reply to `ping`. |
+| `player` | `n`: 1–4 | This phone is Windows' player `n` (the number games show). Sent after login, and again if it changes. |
+| `full` | none | All 4 controller spots are taken (real controllers count too). The phone gets no controller. |
+| `driver_missing` | none | The controller driver (ViGEmBus) is not installed on the PC. |
+| `rumble` | `large`, `small`: 0–255 | The game made the controller vibrate (large and small motor strength). `0, 0` = stop. |
 | `error` | `code`, `message`, optional `ref` | The message was rejected. The connection stays open, except for `auth_required`. |
 
 ### Error codes
@@ -95,6 +100,23 @@ nonce = direction (1 byte: 0 = client to server, 1 = server to client)
 ```
 
 So a frame that is replayed, dropped, reordered or changed fails to open, and the connection is closed (4032). The first encrypted client message must be `auth`, as on an unencrypted connection.
+
+### Button bits (`b`)
+
+The values Windows uses for Xbox controllers (XUSB), added together:
+
+| button | bit | button | bit |
+|---|---|---|---|
+| D-pad up | `0x0001` | LB | `0x0100` |
+| D-pad down | `0x0002` | RB | `0x0200` |
+| D-pad left | `0x0004` | Guide | `0x0400` |
+| D-pad right | `0x0008` | A | `0x1000` |
+| Menu (Start) | `0x0010` | B | `0x2000` |
+| View (Back) | `0x0020` | X | `0x4000` |
+| L3 (left stick click) | `0x0040` | Y | `0x8000` |
+| R3 (right stick click) | `0x0080` | | |
+
+`0x0800` is unused; a bitmask with it, or above `0xFFFF`, is refused (`bad_field`).
 
 ## Behaviour notes for client authors
 

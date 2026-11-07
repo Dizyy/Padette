@@ -37,6 +37,9 @@ from server.encryption import load_key  # noqa: E402
 from server.qr import qr_lines  # noqa: E402
 HOST = "127.0.0.1"
 
+# A valid controller state: A + LB held, left stick up, right trigger pressed.
+GOOD_PAD = {"b": 0x1000 | 0x0100, "lx": 0, "ly": 1, "rx": -0.5, "ry": 0.25, "lt": 0, "rt": 1}
+
 BAD_MESSAGES = [
     ("not json", "bad_json"),
     (json.dumps({"type": "ping"}), "bad_version"),
@@ -47,6 +50,11 @@ BAD_MESSAGES = [
     (json.dumps({"v": 1, "type": "hotkey", "keys": ["win", "r"]}), "unknown_type"),
     (json.dumps({"v": 1, "type": "shutdown"}), "unknown_type"),
     (json.dumps({"v": 1, "type": "ping", "id": [1]}), "bad_field"),
+    *[(json.dumps({"v": 1, "type": "pad", **{**GOOD_PAD, **bad}}), "bad_field") for bad in (
+        {"b": -1}, {"b": 0x10000}, {"b": 0x0800}, {"b": True}, {"b": 1.5},
+        {"lx": 1.5}, {"lx": "0"}, {"ry": -1.01}, {"lt": -0.1}, {"rt": 1.2})],
+    (json.dumps({"v": 1, "type": "pad", **{k: v for k, v in GOOD_PAD.items() if k != "ry"}}), "bad_field"),
+    (json.dumps({"v": 1, "type": "pad", **GOOD_PAD, "lx": float("nan")}), "bad_field"),
 ]
 
 failures: list[str] = []
@@ -322,6 +330,12 @@ async def run(server: Server, port: int) -> None:
             await send(enc_ws, {"type": "enc_hello", "nonce": "short"})
             reply = await recv_json(enc_ws)
             check(reply.get("code") == "bad_field", "enc_hello with a bad nonce -> bad_field")
+
+        print("Controller state")
+        await send(ws, {"type": "pad", **GOOD_PAD})
+        await send(ws, {"type": "ping", "id": "after-pad"})
+        reply = await recv_json(ws)
+        check(reply == {"v": 1, "type": "pong", "id": "after-pad"}, f"valid pad message -> no error ({reply})")
 
         print("Invalid messages get an error reply, connection stays open")
         for raw, expected_code in BAD_MESSAGES:
