@@ -35,7 +35,7 @@ if not defined JP_UPDATED (
 )
 
 :deps
-"%VENV_PY%" -c "import fastapi, uvicorn, websockets, segno, nacl, vgamepad" >nul 2>nul
+"%VENV_PY%" -c "import fastapi, uvicorn, websockets, segno, nacl, importlib.util as u, sys; sys.exit(u.find_spec('vgamepad') is None)" >nul 2>nul
 if errorlevel 1 (
     echo Installing requirements ...
     "%VENV_PY%" -m pip install --disable-pip-version-check -r requirements.txt || (echo Failed to install requirements. & pause & exit /b 1)
