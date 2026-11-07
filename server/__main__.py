@@ -18,7 +18,7 @@ from fastapi import FastAPI
 from . import APP_NAME, APP_SLUG, __version__, encryption
 from .app import create_app, is_lan_address
 from .mdns import MdnsResponder
-from .pad import DryRunPads, vigem_factory
+from .pad import DRIVER_URL, DryRunPads, driver_available, vigem_factory
 from .qr import qr_lines
 
 # Port 80 lets the phone open the address without ":port"; 8765 if something else has 80.
@@ -184,6 +184,9 @@ def print_banner(s: Setup) -> None:
     if len(s.candidates) > 1:
         print(f"  Other addresses:      {', '.join(s.candidates[1:])}")
         print(f"  (if the phone can't connect, start {APP_NAME} with  --host <address>)")
+    if not s.args.dry_run and not driver_available():
+        print("  Controller driver missing: install ViGEmBus, then restart:")
+        print(f"  {DRIVER_URL}")
     print("  Press Ctrl+C to stop.")
     print(bar, flush=True)
 

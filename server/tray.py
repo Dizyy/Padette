@@ -17,6 +17,7 @@ import sys
 import threading
 import time
 import tkinter as tk
+import webbrowser
 from ctypes import wintypes
 from tkinter import messagebox
 
@@ -25,6 +26,7 @@ import segno
 from . import APP_NAME, APP_SLUG, __version__, encryption
 from .__main__ import StartupError, make_server, parse_args, prepare, setup_logging, url
 from .app import CLIENT_DIR
+from .pad import DRIVER_URL, driver_available
 
 log = logging.getLogger("joypad.tray")
 
@@ -316,6 +318,16 @@ class TrayApp:
         for row, (name, value) in enumerate(rows):
             label(table, name, 10, MUTED).grid(row=row, column=0, sticky="w", padx=(0, 16), pady=1)
             label(table, value, 10).grid(row=row, column=1, sticky="w", pady=1)
+
+        if not s.args.dry_run and not driver_available():
+            warn = tk.Frame(root, bg=SURFACE, padx=12, pady=10, highlightthickness=1,
+                            highlightbackground=BORDER)
+            warn.pack(fill="x", pady=(14, 0))
+            label(warn, "Controller driver missing", 11, BAD, bold=True).pack(anchor="w")
+            label(warn, f"{APP_NAME} needs the free ViGEmBus driver to act as Xbox controllers. "
+                        f"Install it, then restart {APP_NAME}.", 10, MUTED,
+                  wraplength=round(330 * scale), justify="left").pack(anchor="w")
+            self.button(warn, "Download ViGEmBus", lambda: webbrowser.open(DRIVER_URL)).pack(anchor="w", pady=(8, 0))
 
         foot = tk.Frame(root, bg=BG)
         foot.pack(fill="x", pady=(16, 0))

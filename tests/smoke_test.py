@@ -489,8 +489,20 @@ def check_players() -> None:
     srv.stop()
 
 
+def check_tray_text() -> None:
+    print("PC window text")
+    from server.pad import driver_available
+    from server.tray import status_text
+    check(status_text([]) == ("Waiting for players", ""), f"no phones -> {status_text([])}")
+    got = status_text([(2, True), (1, False)])
+    check(got == ("2 players", "Player 1 · Player 2 (away)"), f"two players, one away -> {got}")
+    check(status_text([(1, False), (None, False)])[1] == "Player 1", "a phone still waiting for its number isn't listed")
+    check(isinstance(driver_available(), bool), f"driver check answers yes/no ({driver_available()})")
+
+
 def main() -> int:
     check_qr()
+    check_tray_text()
     check_players()
     port = free_port()
     server = Server(port)

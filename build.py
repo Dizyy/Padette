@@ -73,6 +73,9 @@ def main() -> int:
         "--collect-submodules", "uvicorn",
         # PyNaCl loads libsodium through cffi's compiled backend, also unseen.
         "--hidden-import", "_cffi_backend", "--collect-binaries", "nacl",
+        # vgamepad ships ViGEmClient.dll, loaded with ctypes at runtime.
+        # (Only the DLL: its bundled driver installers are left out, JoyPad never installs anything.)
+        *(["--collect-binaries", "vgamepad"] if sys.platform == "win32" else []),
         "--distpath", str(ROOT / "dist"), "--workpath", str(BUILD), "--specpath", str(BUILD),
         str(ROOT / "joypad.py"),
     ], check=True)

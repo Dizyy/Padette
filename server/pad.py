@@ -7,6 +7,7 @@ light on a real pad); it arrives through the driver's notification, like rumble 
 
 from __future__ import annotations
 
+import importlib
 import logging
 import threading
 from collections.abc import Callable
@@ -92,6 +93,18 @@ class VigemPad:
 
 def vigem_factory(on_notify: Notify) -> Pad:
     return VigemPad(on_notify)
+
+
+DRIVER_URL = "https://github.com/nefarius/ViGEmBus/releases"
+
+
+def driver_available() -> bool:
+    """True when ViGEmBus is installed (vgamepad connects to it when imported)."""
+    try:
+        importlib.import_module("vgamepad")
+        return True
+    except Exception:
+        return False
 
 
 # ---------- dry run ----------
