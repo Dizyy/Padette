@@ -203,7 +203,7 @@ async def run(server: Server, port: int) -> None:
               f"ping before auth is rejected and socket closed (code {code})")
 
     print("Static client")
-    for path, ctype in [("/", "text/html"), ("/net.js", "javascript"), ("/style.css", "text/css"),
+    for path, ctype in [("/", "text/html"), ("/net.js", "javascript"), ("/layout.js", "javascript"), ("/pad.js", "javascript"), ("/style.css", "text/css"),
                         ("/manifest.webmanifest", "manifest+json"), ("/icons/icon-180.png", "image/png")]:
         with urllib.request.urlopen(f"http://{HOST}:{port}{path}") as r:
             check(r.status == 200 and ctype in r.headers["content-type"]

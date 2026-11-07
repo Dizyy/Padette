@@ -17,13 +17,18 @@
 </head>
 <body>
   <div id="app">
+    <main id="pad" aria-label="Controller"></main>
     <header class="topbar">
+      <button class="badge" id="player" hidden>Player 1</button>
       <div class="status" id="status" aria-live="polite">
         <span class="dot" id="status-dot"></span>
         <span id="status-text">Connecting…</span>
       </div>
+      <span class="topbar-end" id="topbar-end"></span>
     </header>
-    <main class="views" id="pad"></main>
+    <p class="debug" id="debug" hidden></p>
+    <div class="overlay" id="overlay" hidden><p id="overlay-text"></p></div>
+    <div class="rotate"><p>Turn your phone sideways</p></div>
   </div>
 
   <div class="sheet" id="pin-sheet" hidden>
@@ -44,5 +49,7 @@
 
   <script src="vendor/nacl-fast.min.js"></script>
   <script src="net.js"></script>
+  <script src="layout.js"></script>
+  <script src="pad.js"></script>
 </body>
 </html>
