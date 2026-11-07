@@ -24,9 +24,22 @@
         <span class="dot" id="status-dot"></span>
         <span id="status-text">Connecting…</span>
       </div>
-      <span class="topbar-end" id="topbar-end"></span>
+      <span class="topbar-end" id="topbar-end">
+        <button class="icon-btn" id="edit-btn" aria-label="Move buttons">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25ZM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z"/></svg>
+        </button>
+      </span>
     </header>
     <p class="debug" id="debug" hidden></p>
+    <div class="edit-bar" id="edit-bar" hidden>
+      <p>Drag to move. Drag the corner to resize.</p>
+      <div class="edit-toggles" id="edit-toggles"></div>
+      <div class="edit-actions">
+        <button class="text-btn" type="button" id="edit-reset">Reset</button>
+        <button class="text-btn" type="button" id="edit-cancel">Cancel</button>
+        <button class="primary-btn" type="button" id="edit-done">Done</button>
+      </div>
+    </div>
     <div class="overlay" id="overlay" hidden><p id="overlay-text"></p></div>
     <div class="rotate"><p>Turn your phone sideways</p></div>
   </div>
@@ -51,5 +64,6 @@
   <script src="net.js"></script>
   <script src="layout.js"></script>
   <script src="pad.js"></script>
+  <script src="editor.js"></script>
 </body>
 </html>
